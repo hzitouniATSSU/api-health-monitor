@@ -133,7 +133,7 @@ def test_delete_missing_monitor_returns_404():
         "detail": "Monitor not found"
     }
 
-    
+
 def test_list_incidents_for_missing_monitor_returns_404():
     response = client.get(
         "/api/monitors/999999/incidents"
@@ -142,4 +142,39 @@ def test_list_incidents_for_missing_monitor_returns_404():
     assert response.status_code == 404
     assert response.json() == {
         "detail": "Monitor not found"
+    }
+
+def test_create_monitor_rejects_unsafe_url(
+    monkeypatch,
+):
+    from app.api import monitors
+    from app.core.url_safety import UnsafeURLError
+
+    def reject_url(url: str) -> None:
+        raise UnsafeURLError(
+            "URL resolves to a non-public IP address"
+        )
+
+    monkeypatch.setattr(
+        monitors,
+        "validate_public_url",
+        reject_url,
+    )
+
+    response = client.post(
+        "/api/monitors",
+        json={
+            "name": "Internal Service",
+            "url": "http://127.0.0.1:8000",
+        },
+    )
+
+    list_response = client.get("/api/monitors")
+
+    assert list_response.status_code == 200
+    assert list_response.json() == []
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "URL resolves to a non-public IP address"
     }

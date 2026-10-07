@@ -12,7 +12,7 @@ from app.models.check import Check
 from app.schemas.stats import MonitorStatsResponse
 from app.models.incident import Incident
 from app.schemas.incident import IncidentResponse
-
+from app.core.url_safety import UnsafeURLError, validate_public_url
 from app.services.monitoring import run_check
 
 
@@ -33,6 +33,14 @@ def create_monitor(
     payload: MonitorCreate,
     db: DbSession,
 ) -> Monitor:
+    try:
+        validate_public_url(str(payload.url))
+    except UnsafeURLError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+    
     monitor = Monitor(
         name=payload.name,
         url=str(payload.url),
