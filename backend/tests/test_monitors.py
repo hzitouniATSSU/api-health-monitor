@@ -99,3 +99,36 @@ def test_invalid_monitor_is_not_persisted():
 
     assert response.status_code == 200
     assert response.json() == []
+
+def test_delete_monitor():
+    create_response = client.post(
+        "/api/monitors",
+        json={
+            "name": "Delete Me",
+            "url": "https://example.com/health",
+        },
+    )
+
+    monitor_id = create_response.json()["id"]
+
+    response = client.delete(
+        f"/api/monitors/{monitor_id}"
+    )
+
+    assert response.status_code == 204
+
+    list_response = client.get("/api/monitors")
+
+    assert all(
+        monitor["id"] != monitor_id
+        for monitor in list_response.json()
+    )
+
+
+def test_delete_missing_monitor_returns_404():
+    response = client.delete("/api/monitors/999999")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Monitor not found"
+    }

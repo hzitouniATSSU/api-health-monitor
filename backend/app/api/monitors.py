@@ -151,3 +151,23 @@ def get_monitor_stats(
             else None
         ),
     )
+
+
+@router.delete(
+    "/{monitor_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_monitor(
+    monitor_id: int,
+    db: DbSession,
+) -> None:
+    monitor = db.get(Monitor, monitor_id)
+
+    if monitor is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Monitor not found",
+        )
+
+    db.delete(monitor)
+    db.commit()
