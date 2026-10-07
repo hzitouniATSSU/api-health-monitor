@@ -16,5 +16,34 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: ./backend
+    container_name: api-health-monitor-backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://healthmonitor:healthmonitor@db:5432/healthmonitor
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      ALERT_FROM_EMAIL: ${ALERT_FROM_EMAIL:-}
+      ALERT_TO_EMAIL: ${ALERT_TO_EMAIL:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+    container_name: api-health-monitor-worker
+    command: ["python", "-m", "app.worker"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://healthmonitor:healthmonitor@db:5432/healthmonitor
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      ALERT_FROM_EMAIL: ${ALERT_FROM_EMAIL:-}
+      ALERT_TO_EMAIL: ${ALERT_TO_EMAIL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   postgres_data:
