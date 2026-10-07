@@ -88,15 +88,23 @@ async def test_down_down_up_creates_and_resolves_one_incident():
             error_message=None,
         )
 
-        with patch(
-            "app.services.monitoring.check_url",
-            new=AsyncMock(
-                side_effect=[
-                    down_result,
-                    down_result,
-                    up_result,
-                ]
+        with (
+            patch(
+                "app.services.monitoring.check_url",
+                new=AsyncMock(
+                    side_effect=[
+                        down_result,
+                        down_result,
+                        up_result,
+                    ]
+                ),
             ),
+            patch(
+                "app.services.monitoring.send_down_alert"
+            ) as mock_down_alert,
+            patch(
+                "app.services.monitoring.send_recovery_alert"
+            ) as mock_recovery_alert,
         ):
             await run_check(db, monitor)
             assert monitor.current_status == "DOWN"
@@ -106,6 +114,10 @@ async def test_down_down_up_creates_and_resolves_one_incident():
 
             await run_check(db, monitor)
             assert monitor.current_status == "UP"
+
+            assert mock_down_alert.call_count == 1
+            assert mock_recovery_alert.call_count == 1
+                
 
         incidents = list(
             db.scalars(

@@ -7,6 +7,7 @@ from app.models.check import Check
 from app.models.incident import Incident
 from app.models.monitor import Monitor
 from app.services.checker import CheckResult, check_url
+from app.services.alerts import send_down_alert, send_recovery_alert
 
 
 async def run_check(db: Session, monitor: Monitor) -> Check:
@@ -25,7 +26,9 @@ async def run_check(db: Session, monitor: Monitor) -> Check:
         error_message=result.error_message,
     )
 
-    # A new outage has begun.
+    send_down = False
+    send_recovery = False
+
     if new_status == "DOWN" and previous_status != "DOWN":
         db.add(
             Incident(
@@ -33,8 +36,8 @@ async def run_check(db: Session, monitor: Monitor) -> Check:
                 started_at=now,
             )
         )
+        send_down = True
 
-    # An existing outage has recovered.
     elif new_status == "UP" and previous_status == "DOWN":
         open_incident = db.scalar(
             select(Incident)
@@ -49,6 +52,8 @@ async def run_check(db: Session, monitor: Monitor) -> Check:
         if open_incident is not None:
             open_incident.resolved_at = now
 
+        send_recovery = True
+
     monitor.current_status = new_status
     monitor.last_checked_at = now
 
@@ -61,5 +66,10 @@ async def run_check(db: Session, monitor: Monitor) -> Check:
         raise
 
     db.refresh(check)
+
+    if send_down:
+        send_down_alert(monitor)
+    elif send_recovery:
+        send_recovery_alert(monitor)
 
     return check

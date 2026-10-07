@@ -3,6 +3,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     database_url: str
 
+    resend_api_key: str | None = None
+    alert_from_email: str | None = None
+    alert_to_email: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -10,3 +13,5 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
+
+
