@@ -79,6 +79,14 @@ function App() {
 
   useEffect(() => {
     Promise.resolve().then(() => loadDashboard());
+
+    const intervalId = window.setInterval(() => {
+      void loadDashboard();
+    }, 10_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   async function handleCreateMonitor(
