@@ -90,22 +90,7 @@ export async function createMonitor(
   return response.json();
 }
 
-export async function checkMonitor(
-  monitorId: number,
-): Promise<Check> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/monitors/${monitorId}/check`,
-    {
-      method: "POST",
-    },
-  );
 
-  if (!response.ok) {
-    throw new Error("Failed to check monitor");
-  }
-
-  return response.json();
-}
 
 export async function deleteMonitor(
   monitorId: number,

@@ -8,7 +8,6 @@ import {
   YAxis,
 } from "recharts";
 import {
-  checkMonitor,
   createMonitor,
   deleteMonitor,
   getMonitorChecks,
@@ -91,12 +90,10 @@ function App() {
     setFormError(null);
 
     try {
-      const monitor = await createMonitor({
+      await createMonitor({
         name: newName.trim(),
         url: newUrl.trim(),
       });
-
-      await checkMonitor(monitor.id);
 
       setNewName("");
       setNewUrl("");

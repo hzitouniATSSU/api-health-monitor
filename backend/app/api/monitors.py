@@ -13,7 +13,7 @@ from app.schemas.stats import MonitorStatsResponse
 from app.models.incident import Incident
 from app.schemas.incident import IncidentResponse
 from app.core.url_safety import UnsafeURLError, validate_public_url
-from app.services.monitoring import run_check
+
 
 
 router = APIRouter(
@@ -59,25 +59,7 @@ def list_monitors(db: DbSession) -> list[Monitor]:
 
     return list(db.scalars(statement).all())
 
-@router.post(
-    "/{monitor_id}/check",
-    response_model=CheckResponse,
-)
-async def check_monitor(
-    monitor_id: int,
-    db: DbSession,
-) -> CheckResponse:
-    monitor = db.get(Monitor, monitor_id)
 
-    if monitor is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Monitor not found",
-        )
-
-    check = await run_check(db, monitor)
-
-    return CheckResponse.model_validate(check)
 
 @router.get(
     "/{monitor_id}/checks",
