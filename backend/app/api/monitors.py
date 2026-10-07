@@ -10,6 +10,8 @@ from app.schemas.monitor import MonitorCreate, MonitorResponse
 from app.schemas.check import CheckResponse
 from app.models.check import Check
 from app.schemas.stats import MonitorStatsResponse
+from app.models.incident import Incident
+from app.schemas.incident import IncidentResponse
 
 from app.services.monitoring import run_check
 
@@ -171,3 +173,29 @@ def delete_monitor(
 
     db.delete(monitor)
     db.commit()
+
+@router.get(
+    "/{monitor_id}/incidents",
+    response_model=list[IncidentResponse],
+)
+def list_monitor_incidents(
+    monitor_id: int,
+    db: DbSession,
+    limit: int = 100,
+) -> list[Incident]:
+    monitor = db.get(Monitor, monitor_id)
+
+    if monitor is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Monitor not found",
+        )
+
+    statement = (
+        select(Incident)
+        .where(Incident.monitor_id == monitor_id)
+        .order_by(Incident.started_at.desc())
+        .limit(min(max(limit, 1), 500))
+    )
+
+    return list(db.scalars(statement).all())

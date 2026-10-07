@@ -132,3 +132,14 @@ def test_delete_missing_monitor_returns_404():
     assert response.json() == {
         "detail": "Monitor not found"
     }
+
+    
+def test_list_incidents_for_missing_monitor_returns_404():
+    response = client.get(
+        "/api/monitors/999999/incidents"
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Monitor not found"
+    }

@@ -1,7 +1,9 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from sqlalchemy import select
 
+from app.models.incident import Incident
 from app.database import SessionLocal
 from app.models.check import Check
 from app.models.monitor import Monitor
@@ -51,6 +53,71 @@ async def test_run_check_persists_success():
 
         assert stored_check is not None
         assert stored_check.success is True
+
+        db.delete(monitor)
+        db.commit()
+
+@pytest.mark.anyio
+async def test_down_down_up_creates_and_resolves_one_incident():
+    with SessionLocal() as db:
+        monitor = Monitor(
+            name="Incident Test",
+            url="https://example.com/health",
+            current_status="UP",
+        )
+
+        db.add(monitor)
+        db.commit()
+        db.refresh(monitor)
+
+        monitor_id = monitor.id
+
+        down_result = CheckResult(
+            success=False,
+            status_code=503,
+            response_time_ms=100,
+            error_type=None,
+            error_message=None,
+        )
+
+        up_result = CheckResult(
+            success=True,
+            status_code=200,
+            response_time_ms=80,
+            error_type=None,
+            error_message=None,
+        )
+
+        with patch(
+            "app.services.monitoring.check_url",
+            new=AsyncMock(
+                side_effect=[
+                    down_result,
+                    down_result,
+                    up_result,
+                ]
+            ),
+        ):
+            await run_check(db, monitor)
+            assert monitor.current_status == "DOWN"
+
+            await run_check(db, monitor)
+            assert monitor.current_status == "DOWN"
+
+            await run_check(db, monitor)
+            assert monitor.current_status == "UP"
+
+        incidents = list(
+            db.scalars(
+                select(Incident)
+                .where(Incident.monitor_id == monitor_id)
+            ).all()
+        )
+
+        assert len(incidents) == 1
+        assert incidents[0].started_at is not None
+        assert incidents[0].resolved_at is not None
+        assert incidents[0].resolved_at >= incidents[0].started_at
 
         db.delete(monitor)
         db.commit()

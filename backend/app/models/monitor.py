@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.check import Check
+    from app.models.incident import Incident
 class Monitor(Base):
     __tablename__ = "monitors"
 
@@ -35,6 +36,11 @@ class Monitor(Base):
     )
 
     checks: Mapped[list["Check"]] = relationship(
-    back_populates="monitor",
-    cascade="all, delete-orphan",
+        back_populates="monitor",
+        cascade="all, delete-orphan",
+    )
+
+    incidents: Mapped[list["Incident"]] = relationship(
+        back_populates="monitor",
+        cascade="all, delete-orphan",
     )
