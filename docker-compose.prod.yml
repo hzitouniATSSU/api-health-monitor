@@ -1,5 +1,8 @@
 services:
   db:
+    networks:
+      - app_net
+      - worker_net
     container_name: !reset null
     restart: unless-stopped
     ports: !reset []
@@ -7,6 +10,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
 
   backend:
+    networks:
+      - app_net
     container_name: !reset null
     restart: unless-stopped
     ports: !reset []
@@ -17,6 +22,9 @@ services:
       ALERT_TO_EMAIL: ${ALERT_TO_EMAIL:-}
 
   worker:
+    networks:
+      worker_net:
+        ipv4_address: 172.30.50.10
     container_name: !reset null
     restart: unless-stopped
     user: "10001:10001"
@@ -31,6 +39,8 @@ services:
       ALERT_TO_EMAIL: ${ALERT_TO_EMAIL:-}
 
   frontend:
+    networks:
+      - app_net
     container_name: !reset null
     restart: unless-stopped
     ports: !reset []
@@ -39,6 +49,8 @@ services:
         VITE_API_BASE_URL: ""
 
   caddy:
+    networks:
+      - app_net
     image: caddy:2
     restart: unless-stopped
     ports:
@@ -55,6 +67,17 @@ services:
     depends_on:
       - frontend
       - backend
+
+networks:
+  app_net:
+    driver: bridge
+  worker_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-ahm-worker
+    ipam:
+      config:
+        - subnet: 172.30.50.0/24
 
 volumes:
   caddy_data:
