@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 import httpx
 
 from app.core.url_safety import UnsafeURLError, validate_public_url
+from app.core.safe_transport import SafeAsyncHTTPTransport
 
 
 MAX_REDIRECTS = 5
@@ -35,43 +36,51 @@ async def check_url(
         async with httpx.AsyncClient(
             follow_redirects=False,
             timeout=timeout_seconds,
-            transport=transport,
+            trust_env=False,
+            transport=transport if transport is not None else SafeAsyncHTTPTransport(),
         ) as client:
             for redirect_count in range(MAX_REDIRECTS + 1):
                 validate_public_url(current_url)
 
-                response = await client.get(current_url)
+                request = client.build_request("GET", current_url)
+                response = await client.send(request, stream=True)
 
-                if not response.is_redirect:
-                    return CheckResult(
-                        success=200 <= response.status_code < 400,
-                        status_code=response.status_code,
-                        response_time_ms=_elapsed_ms(start),
-                        error_type=None,
-                        error_message=None,
-                    )
+                try:
+                    if not response.is_redirect:
+                        return CheckResult(
+                            success=200 <= response.status_code < 400,
+                            status_code=response.status_code,
+                            response_time_ms=_elapsed_ms(start),
+                            error_type=None,
+                            error_message=None,
+                        )
 
-                location = response.headers.get("location")
+                    location = response.headers.get("location")
 
-                if not location:
-                    return CheckResult(
-                        success=False,
-                        status_code=response.status_code,
-                        response_time_ms=_elapsed_ms(start),
-                        error_type="invalid_redirect",
-                        error_message="Redirect response has no Location header",
-                    )
+                    if not location:
+                        return CheckResult(
+                            success=False,
+                            status_code=response.status_code,
+                            response_time_ms=_elapsed_ms(start),
+                            error_type="invalid_redirect",
+                            error_message="Redirect response has no Location header",
+                        )
 
-                if redirect_count == MAX_REDIRECTS:
-                    return CheckResult(
-                        success=False,
-                        status_code=response.status_code,
-                        response_time_ms=_elapsed_ms(start),
-                        error_type="too_many_redirects",
-                        error_message="Maximum redirect limit exceeded",
-                    )
+                    if redirect_count == MAX_REDIRECTS:
+                        return CheckResult(
+                            success=False,
+                            status_code=response.status_code,
+                            response_time_ms=_elapsed_ms(start),
+                            error_type="too_many_redirects",
+                            error_message="Maximum redirect limit exceeded",
+                        )
 
-                current_url = urljoin(current_url, location)
+                    current_url = urljoin(current_url, location)
+
+                finally:
+                    await response.aclose()
+
+
 
     except UnsafeURLError as exc:
         return CheckResult(

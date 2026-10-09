@@ -1,0 +1,10 @@
+
+# Local and production environment secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# SSH private keys
+*.pem
+*.key

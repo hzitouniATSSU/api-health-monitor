@@ -147,3 +147,34 @@ async def test_redirect_to_unsafe_url_is_blocked(monkeypatch):
     assert requests_made == [
         "https://example.com"
     ]
+
+
+@pytest.mark.anyio
+async def test_checker_does_not_download_response_body(monkeypatch):
+    class ExplodingStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            raise AssertionError(
+                "Checker must not consume the response body"
+            )
+            yield b""
+
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            200,
+            stream=ExplodingStream(),
+            request=request,
+        )
+    )
+
+    monkeypatch.setattr(
+        "app.services.checker.validate_public_url",
+        lambda url: None,
+    )
+
+    result = await check_url(
+        "https://example.com",
+        transport=transport,
+    )
+
+    assert result.success is True
+    assert result.status_code == 200
