@@ -1,10 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
+from datetime import datetime, timedelta, timezone
 
 from app.database import SessionLocal
 from app.main import app
 from app.models.monitor import Monitor
+from app.models.incident import Incident
 
 
 client = TestClient(app)
@@ -178,3 +180,47 @@ def test_create_monitor_rejects_unsafe_url(
     assert response.json() == {
         "detail": "URL resolves to a non-public IP address"
     }
+
+def test_list_incidents_returns_ongoing_and_resolved():
+    with SessionLocal() as db:
+        monitor = Monitor(
+            name="Incident History Test",
+            url="https://example.com/health",
+        )
+        db.add(monitor)
+        db.flush()
+
+        now = datetime.now(timezone.utc)
+
+        resolved = Incident(
+            monitor_id=monitor.id,
+            started_at=now - timedelta(hours=2),
+            resolved_at=now - timedelta(hours=1),
+        )
+
+        ongoing = Incident(
+            monitor_id=monitor.id,
+            started_at=now - timedelta(minutes=15),
+            resolved_at=None,
+        )
+
+        db.add_all([resolved, ongoing])
+        db.commit()
+        monitor_id = monitor.id
+
+    response = client.get(
+        f"/api/monitors/{monitor_id}/incidents"
+    )
+
+    assert response.status_code == 200
+
+    incidents = response.json()
+
+    assert len(incidents) == 2
+
+    assert incidents[0]["resolved_at"] is None
+    assert incidents[1]["resolved_at"] is not None
+
+    assert incidents[0]["monitor_id"] == monitor_id
+    assert incidents[0]["id"] is not None
+    assert incidents[0]["started_at"] is not None

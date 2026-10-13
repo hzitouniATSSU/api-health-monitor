@@ -28,6 +28,13 @@ export interface Check {
   error_message: string | null;
 }
 
+export interface Incident {
+  id: number;
+  monitor_id: number;
+  started_at: string;
+  resolved_at: string | null;
+}
+
 export async function getMonitors(): Promise<Monitor[]> {
   const response = await fetch(`${API_BASE_URL}/api/monitors`);
 
@@ -61,6 +68,20 @@ export async function getMonitorChecks(
 
   if (!response.ok) {
     throw new Error("Failed to load check history");
+  }
+
+  return response.json();
+}
+
+export async function getMonitorIncidents(
+  monitorId: number,
+): Promise<Incident[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/monitors/${monitorId}/incidents?limit=20`,
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to load incident history");
   }
 
   return response.json();

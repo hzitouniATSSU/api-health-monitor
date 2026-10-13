@@ -256,3 +256,73 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Incident history */
+
+.incident-history {
+  margin: 0 0 24px;
+  padding-top: 20px;
+  border-top: 1px solid #252832;
+}
+
+.incident-history h3 {
+  margin: 0 0 14px;
+  color: #f3f4f6;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.incident-empty {
+  margin: 0;
+  color: #8d929f;
+  font-size: 13px;
+}
+
+.incident-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.incident-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #343842;
+  border-radius: 8px;
+  background: #191d25;
+}
+
+.incident-status {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.incident-status.ongoing {
+  color: #fca5a5;
+  background: #451a1a;
+}
+
+.incident-status.resolved {
+  color: #86efac;
+  background: #143626;
+}
+
+.incident-details {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #aeb3bf;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.incident-error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 13px;
+}
