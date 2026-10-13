@@ -219,6 +219,7 @@ function App() {
                 value={newName}
                 onChange={(event) => setNewName(event.target.value)}
                 placeholder="Payments API"
+                maxLength={100}
                 required
               />
             </label>
@@ -230,6 +231,7 @@ function App() {
                 value={newUrl}
                 onChange={(event) => setNewUrl(event.target.value)}
                 placeholder="https://api.example.com/health"
+                maxLength={2048}
                 required
               />
             </label>

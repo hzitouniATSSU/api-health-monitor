@@ -1,3 +1,7 @@
+import asyncio
+import time
+from time import monotonic
+
 import httpx
 import pytest
 
@@ -178,3 +182,60 @@ async def test_checker_does_not_download_response_body(monkeypatch):
 
     assert result.success is True
     assert result.status_code == 200
+
+@pytest.mark.anyio
+async def test_slow_response_is_bounded_by_total_deadline(monkeypatch):
+    monkeypatch.setattr(
+        checker,
+        "validate_public_url",
+        lambda url: None,
+    )
+
+    # httpx timeouts apply per network operation, so a server that
+    # trickles bytes can hold a request open far longer than the
+    # configured timeout. The check must enforce an overall deadline.
+    class SlowTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(
+            self,
+            request: httpx.Request,
+        ) -> httpx.Response:
+            await asyncio.sleep(5)
+            return httpx.Response(200)
+
+    start = monotonic()
+
+    result = await check_url(
+        "https://example.com/health",
+        timeout_seconds=0.2,
+        transport=SlowTransport(),
+    )
+
+    assert monotonic() - start < 2
+    assert result.success is False
+    assert result.status_code is None
+    assert result.error_type == "timeout"
+
+
+@pytest.mark.anyio
+async def test_slow_dns_validation_is_bounded_by_total_deadline(monkeypatch):
+    # URL validation resolves DNS synchronously; it must not block the
+    # event loop or escape the deadline when a resolver is slow.
+    monkeypatch.setattr(
+        checker,
+        "validate_public_url",
+        lambda url: time.sleep(1.5),
+    )
+
+    transport = httpx.MockTransport(lambda request: httpx.Response(200))
+
+    start = monotonic()
+
+    result = await check_url(
+        "https://example.com/health",
+        timeout_seconds=0.2,
+        transport=transport,
+    )
+
+    assert monotonic() - start < 1
+    assert result.success is False
+    assert result.error_type == "timeout"

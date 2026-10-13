@@ -10,6 +10,21 @@ services:
     container_name: !reset null
     restart: unless-stopped
     ports: !reset []
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
