@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Line,
   LineChart,
@@ -12,8 +12,10 @@ import {
   deleteMonitor,
   getMonitorChecks,
   getMonitors,
+  getMonitorIncidents,
   getMonitorStats,
   type Check,
+  type Incident,
   type Monitor,
   type MonitorStats,
 } from "./api";
@@ -22,6 +24,8 @@ import "./App.css";
 interface MonitorWithStats extends Monitor {
   stats: MonitorStats | null;
   checks: Check[];
+  incidents: Incident[];
+  incidentsError: boolean;
 }
 
 function App() {
@@ -35,8 +39,15 @@ function App() {
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const refreshInProgress = useRef(false);
 
   async function loadDashboard() {
+    if (refreshInProgress.current) {
+      return;
+    }
+
+    refreshInProgress.current = true;
+
     try {
       setError(null);
 
@@ -45,21 +56,32 @@ function App() {
       const monitorsWithStats = await Promise.all(
         monitorList.map(async (monitor) => {
           try {
-            const [stats, checks] = await Promise.all([
+            const [stats, checks, incidentResult] = await Promise.all([
               getMonitorStats(monitor.id),
               getMonitorChecks(monitor.id),
+              getMonitorIncidents(monitor.id)
+                .then((incidents) => ({
+                  incidents,
+                  incidentsError: false,
+                }))
+                .catch(() => ({
+                  incidents: [] as Incident[],
+                  incidentsError: true,
+                })),
             ]);
-
             return {
               ...monitor,
               stats,
               checks: [...checks].reverse(),
+              ...incidentResult,
             };
           } catch {
             return {
               ...monitor,
               stats: null,
               checks: [],
+              incidents: [],
+              incidentsError: true,
             };
           }
         }),
@@ -73,6 +95,7 @@ function App() {
           : "Failed to load dashboard",
       );
     } finally {
+      refreshInProgress.current = false;
       setLoading(false);
     }
   }
@@ -367,6 +390,66 @@ function App() {
                 </div>
               )}
             </div>
+
+            <section className="incident-history">
+              <h3>Incident history</h3>
+
+              {monitor.incidentsError ? (
+                <p className="incident-error">
+                  Incident history is temporarily unavailable.
+                </p>
+              ) : monitor.incidents.length === 0 ? (
+                <p className="incident-empty">No incidents recorded.</p>
+              ) : (
+                <div className="incident-list">
+                  {monitor.incidents.slice(0, 5).map((incident) => {
+                    const ongoing = incident.resolved_at === null;
+
+                    const started = new Date(incident.started_at);
+                    const ended = ongoing
+                      ? null
+                      : new Date(incident.resolved_at!);
+
+                    const durationMs = Math.max(
+                      0,
+                      (ended?.getTime() ?? Date.now()) - started.getTime(),
+                    );
+
+                    const durationMinutes = Math.floor(durationMs / 60000);
+
+                    return (
+                      <div className="incident-item" key={incident.id}>
+                        <span
+                          className={
+                            ongoing
+                              ? "incident-status ongoing"
+                              : "incident-status resolved"
+                          }
+                        >
+                          {ongoing ? "Ongoing" : "Resolved"}
+                        </span>
+
+                        <div className="incident-details">
+                          <span>
+                            Started: {started.toLocaleString()}
+                          </span>
+
+                          {ended && (
+                            <span>
+                              Resolved: {ended.toLocaleString()}
+                            </span>
+                          )}
+
+                          <span>
+                            Duration: {durationMinutes} min
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
 
             <footer className="monitor-footer">
               <span>
