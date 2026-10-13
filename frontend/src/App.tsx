@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Line,
   LineChart,
@@ -35,8 +35,15 @@ function App() {
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const refreshInProgress = useRef(false);
 
   async function loadDashboard() {
+    if (refreshInProgress.current) {
+      return;
+    }
+
+    refreshInProgress.current = true;
+
     try {
       setError(null);
 
@@ -73,6 +80,7 @@ function App() {
           : "Failed to load dashboard",
       );
     } finally {
+      refreshInProgress.current = false;
       setLoading(false);
     }
   }
