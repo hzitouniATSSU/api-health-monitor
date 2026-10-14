@@ -42,6 +42,9 @@ services:
         ipv4_address: 172.30.50.10
     container_name: !reset null
     restart: unless-stopped
+    mem_limit: 192m
+    cpus: '0.50'
+    pids_limit: 64
     user: "10001:10001"
     cap_drop:
       - ALL
