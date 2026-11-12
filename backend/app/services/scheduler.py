@@ -1,11 +1,13 @@
 import asyncio
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.models.monitor import Monitor
+from app.services.heartbeat import HeartbeatWriter
 from app.services.monitoring import run_check
 
 
@@ -30,9 +32,12 @@ def is_monitor_due(
 
 async def run_monitoring_cycle(
     now: datetime | None = None,
+    heartbeat: HeartbeatWriter | None = None,
 ) -> None:
     if now is None:
         now = datetime.now(timezone.utc)
+
+    cycle_started = time.monotonic()
 
     with SessionLocal() as db:
         monitors = list(
@@ -53,6 +58,16 @@ async def run_monitoring_cycle(
             len(due_monitors),
         )
 
+        # Heartbeats mark progress, not just a live process: one after the
+        # monitors load, one per check and one at the end. Each check has a
+        # bounded deadline, so a long cycle keeps beating while a hung one
+        # goes quiet.
+        if heartbeat is not None:
+            heartbeat.beat(
+                cycle_started=True,
+                monitor_count=len(monitors),
+            )
+
         for monitor in due_monitors:
             try:
                 await run_check(db, monitor)
@@ -69,11 +84,36 @@ async def run_monitoring_cycle(
                     monitor.id,
                 )
 
+            if heartbeat is not None:
+                heartbeat.beat()
 
-async def scheduler_loop() -> None:
+    if heartbeat is not None:
+        heartbeat.beat(
+            cycle_completed=True,
+            cycle_duration_ms=round(
+                (time.monotonic() - cycle_started) * 1000
+            ),
+        )
+
+
+async def scheduler_loop(
+    heartbeat: HeartbeatWriter | None = None,
+) -> None:
+    if heartbeat is None:
+        heartbeat = HeartbeatWriter()
+
+    logger.info(
+        "Worker instance %s registering heartbeat",
+        heartbeat.instance_id,
+    )
+
+    # Register before any work so a restart is visible as "starting"
+    # immediately instead of looking stale until the first cycle ends.
+    heartbeat.beat()
+
     while True:
         try:
-            await run_monitoring_cycle()
+            await run_monitoring_cycle(heartbeat=heartbeat)
         except Exception:
             logger.exception("Monitoring cycle failed")
 

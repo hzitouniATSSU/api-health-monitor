@@ -195,16 +195,24 @@ function App() {
       </header>
 
       {showAddForm && (
-        <form className="add-form" onSubmit={handleCreateMonitor}>
+        <form
+          className="add-form"
+          aria-labelledby="add-monitor-title"
+          aria-describedby="add-monitor-description"
+          onSubmit={handleCreateMonitor}
+        >
           <div className="form-heading">
             <div>
-              <h2>Add monitor</h2>
-              <p>Enter an HTTP or HTTPS endpoint to monitor.</p>
+              <h2 id="add-monitor-title">Add monitor</h2>
+              <p id="add-monitor-description">
+                Enter an HTTP or HTTPS endpoint to monitor.
+              </p>
             </div>
 
             <button
               type="button"
               className="close-button"
+              aria-label="Close add monitor form"
               onClick={() => setShowAddForm(false)}
             >
               ×
@@ -219,6 +227,7 @@ function App() {
                 value={newName}
                 onChange={(event) => setNewName(event.target.value)}
                 placeholder="Payments API"
+                maxLength={100}
                 required
               />
             </label>
@@ -230,12 +239,17 @@ function App() {
                 value={newUrl}
                 onChange={(event) => setNewUrl(event.target.value)}
                 placeholder="https://api.example.com/health"
+                maxLength={2048}
                 required
               />
             </label>
           </div>
 
-          {formError && <p className="form-error">{formError}</p>}
+          {formError && (
+            <p className="form-error" role="alert">
+              {formError}
+            </p>
+          )}
 
           <div className="form-actions">
             <button

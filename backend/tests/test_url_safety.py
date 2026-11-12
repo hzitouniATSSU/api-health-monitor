@@ -17,6 +17,20 @@ def fake_dns(ip: str):
     ]
 
 
+@pytest.mark.parametrize(
+    "ip",
+    ["93.184.216.34", "8.8.8.8", "2606:4700::1111", "2001:4860:4860::8888"],
+)
+def test_public_ipv4_and_ipv6_addresses_are_allowed(monkeypatch, ip):
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: fake_dns(ip),
+    )
+
+    validate_public_url("https://example.com")
+
+
 def test_public_address_is_allowed(monkeypatch):
     monkeypatch.setattr(
         socket,
@@ -35,6 +49,10 @@ def test_public_address_is_allowed(monkeypatch):
         ("http://192.168.1.1", "192.168.1.1"),
         ("http://172.16.0.1", "172.16.0.1"),
         ("http://169.254.169.254", "169.254.169.254"),
+        # Shared address space (RFC 6598): not "private" in Python's
+        # classification, but never publicly routable.
+        ("http://100.64.0.1", "100.64.0.1"),
+        ("http://100.100.100.200", "100.100.100.200"),
     ],
 )
 def test_private_addresses_are_rejected(monkeypatch, url, ip):

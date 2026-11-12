@@ -51,6 +51,161 @@ body {
   cursor: pointer;
 }
 
+.add-form {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+  margin-bottom: 24px;
+  padding: 24px;
+  border: 1px solid #343842;
+  border-radius: 12px;
+  background: #161a22;
+  color-scheme: dark;
+  text-align: left;
+}
+
+.add-form .form-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.add-form h2 {
+  margin: 0 0 8px;
+  color: #f3f4f6;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.add-form .form-heading p {
+  color: #aeb3bf;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.add-form .form-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: 20px;
+}
+
+.add-form label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  color: #d5d7dc;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.add-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 11px 14px;
+  border: 1px solid #626a7a;
+  border-radius: 8px;
+  background: #0b0d12;
+  color: #f4f4f5;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.add-form input::placeholder {
+  color: #8d929f;
+  opacity: 1;
+}
+
+.add-form .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid #343842;
+}
+
+.add-form button {
+  min-height: 44px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.add-form .secondary-button {
+  padding: 10px 16px;
+  border: 1px solid #626a7a;
+  border-radius: 8px;
+  background: transparent;
+  color: #f4f4f5;
+  cursor: pointer;
+}
+
+.add-form .close-button {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #aeb3bf;
+  font-size: 24px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.add-form .primary-button:hover:not(:disabled) {
+  background: #d5d7dc;
+}
+
+.add-form .secondary-button:hover,
+.add-form .close-button:hover {
+  background: #252832;
+  color: #f4f4f5;
+}
+
+.add-form input:focus-visible,
+.add-form button:focus-visible {
+  outline: 2px solid #aeb3bf;
+  outline-offset: 3px;
+}
+
+.add-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.add-form .form-error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .add-form {
+    padding: 20px 16px;
+  }
+
+  .add-form .form-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .add-form .form-actions {
+    flex-direction: column;
+  }
+}
+
 .summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

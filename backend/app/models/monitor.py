@@ -35,12 +35,16 @@ class Monitor(Base):
         server_default=func.now(),
     )
 
+    # passive_deletes lets the database's ON DELETE CASCADE remove child
+    # rows instead of the ORM loading and deleting each one.
     checks: Mapped[list["Check"]] = relationship(
         back_populates="monitor",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     incidents: Mapped[list["Incident"]] = relationship(
         back_populates="monitor",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )

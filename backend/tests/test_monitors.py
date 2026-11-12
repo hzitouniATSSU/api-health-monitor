@@ -1,12 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete
+from sqlalchemy import delete, event, func, insert, select
 from datetime import datetime, timedelta, timezone
 
-from app.database import SessionLocal
+from app.database import SessionLocal, engine
 from app.main import app
 from app.models.monitor import Monitor
 from app.models.incident import Incident
+from app.models.check import Check
 
 
 client = TestClient(app)
@@ -224,3 +225,100 @@ def test_list_incidents_returns_ongoing_and_resolved():
     assert incidents[0]["monitor_id"] == monitor_id
     assert incidents[0]["id"] is not None
     assert incidents[0]["started_at"] is not None
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"name": "x" * 101, "url": "https://example.com/health"},
+        {"name": "", "url": "https://example.com/health"},
+        {"name": "   ", "url": "https://example.com/health"},
+        {"name": "Long URL", "url": "https://example.com/" + "a" * 2050},
+        # 2048 characters as sent, 2049 once normalized to ".com/?".
+        {"name": "Long URL", "url": "https://example.com?" + "a" * 2028},
+    ],
+    ids=[
+        "name-too-long",
+        "name-empty",
+        "name-blank",
+        "url-too-long",
+        "url-too-long-after-normalization",
+    ],
+)
+def test_create_monitor_rejects_invalid_fields(payload):
+    response = client.post("/api/monitors", json=payload)
+
+    assert response.status_code == 422
+    assert client.get("/api/monitors").json() == []
+
+
+def test_create_monitor_strips_name_whitespace():
+    response = client.post(
+        "/api/monitors",
+        json={
+            "name": "  Padded API  ",
+            "url": "https://example.com/health",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["name"] == "Padded API"
+
+
+def test_delete_monitor_relies_on_database_cascade():
+    with SessionLocal() as db:
+        monitor = Monitor(
+            name="Cascade Test",
+            url="https://example.com/health",
+        )
+        db.add(monitor)
+        db.flush()
+        monitor_id = monitor.id
+
+        db.execute(
+            insert(Check),
+            [{"monitor_id": monitor_id, "success": True} for _ in range(50)],
+        )
+        db.add(Incident(monitor_id=monitor_id))
+        db.commit()
+
+    statements: list[str] = []
+
+    def record(conn, cursor, statement, *args):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record)
+
+    try:
+        response = client.delete(f"/api/monitors/{monitor_id}")
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+
+    assert response.status_code == 204
+
+    # Child rows must be removed by ON DELETE CASCADE, not loaded into
+    # memory and deleted one by one by the ORM.
+    assert not any("FROM checks" in s for s in statements)
+    assert not any("FROM incidents" in s for s in statements)
+
+    with SessionLocal() as db:
+        assert db.scalar(
+            select(func.count()).select_from(Check)
+            .where(Check.monitor_id == monitor_id)
+        ) == 0
+        assert db.scalar(
+            select(func.count()).select_from(Incident)
+            .where(Incident.monitor_id == monitor_id)
+        ) == 0
+
+
+def test_create_monitor_accepts_values_at_column_limits():
+    url = "https://example.com/" + "a" * (2048 - len("https://example.com/"))
+
+    response = client.post(
+        "/api/monitors",
+        json={"name": "n" * 100, "url": url},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["name"] == "n" * 100
+    assert response.json()["url"] == url

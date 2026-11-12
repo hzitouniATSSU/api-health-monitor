@@ -133,3 +133,91 @@ async def test_down_down_up_creates_and_resolves_one_incident():
 
         db.delete(monitor)
         db.commit()
+
+@pytest.mark.anyio
+async def test_alert_failure_does_not_fail_the_check(caplog):
+    with SessionLocal() as db:
+        monitor = Monitor(
+            name="Alert Failure Test",
+            url="https://example.com/health",
+            current_status="UP",
+        )
+
+        db.add(monitor)
+        db.commit()
+        db.refresh(monitor)
+
+        down_result = CheckResult(
+            success=False,
+            status_code=503,
+            response_time_ms=100,
+            error_type=None,
+            error_message=None,
+        )
+
+        with (
+            patch(
+                "app.services.monitoring.check_url",
+                new=AsyncMock(return_value=down_result),
+            ),
+            patch(
+                "app.services.monitoring.send_down_alert",
+                side_effect=RuntimeError("email provider unavailable"),
+            ),
+        ):
+            check = await run_check(db, monitor)
+
+        assert check.id is not None
+        assert check.success is False
+
+        db.refresh(monitor)
+
+        assert monitor.current_status == "DOWN"
+        assert "Failed to send DOWN alert" in caplog.text
+
+        db.delete(monitor)
+        db.commit()
+
+
+@pytest.mark.anyio
+async def test_recovery_alert_failure_does_not_fail_the_check(caplog):
+    with SessionLocal() as db:
+        monitor = Monitor(
+            name="Recovery Alert Failure Test",
+            url="https://example.com/health",
+            current_status="DOWN",
+        )
+
+        db.add(monitor)
+        db.commit()
+        db.refresh(monitor)
+
+        up_result = CheckResult(
+            success=True,
+            status_code=200,
+            response_time_ms=50,
+            error_type=None,
+            error_message=None,
+        )
+
+        with (
+            patch(
+                "app.services.monitoring.check_url",
+                new=AsyncMock(return_value=up_result),
+            ),
+            patch(
+                "app.services.monitoring.send_recovery_alert",
+                side_effect=RuntimeError("email provider unavailable"),
+            ),
+        ):
+            check = await run_check(db, monitor)
+
+        assert check.success is True
+
+        db.refresh(monitor)
+
+        assert monitor.current_status == "UP"
+        assert "Failed to send recovery alert" in caplog.text
+
+        db.delete(monitor)
+        db.commit()

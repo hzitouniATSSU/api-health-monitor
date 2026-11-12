@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -8,6 +9,8 @@ from app.models.incident import Incident
 from app.models.monitor import Monitor
 from app.services.checker import CheckResult, check_url
 from app.services.alerts import send_down_alert, send_recovery_alert
+
+logger = logging.getLogger(__name__)
 
 
 async def run_check(db: Session, monitor: Monitor) -> Check:
@@ -67,9 +70,18 @@ async def run_check(db: Session, monitor: Monitor) -> Check:
 
     db.refresh(check)
 
-    if send_down:
-        send_down_alert(monitor)
-    elif send_recovery:
-        send_recovery_alert(monitor)
+    # The check is already committed; an alert delivery failure must not
+    # be reported as a failed check.
+    try:
+        if send_down:
+            send_down_alert(monitor)
+        elif send_recovery:
+            send_recovery_alert(monitor)
+    except Exception:
+        logger.exception(
+            "Failed to send %s alert for monitor id=%s",
+            "DOWN" if send_down else "recovery",
+            monitor.id,
+        )
 
     return check

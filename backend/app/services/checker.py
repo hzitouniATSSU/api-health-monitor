@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from time import monotonic
 from urllib.parse import urljoin
@@ -30,6 +31,29 @@ async def check_url(
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> CheckResult:
     start = monotonic()
+
+    # httpx timeouts apply to each network operation, so a slow or
+    # trickling server (or a redirect chain) could otherwise hold a check
+    # open well past timeout_seconds and stall the sequential scheduler.
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            return await _check_url(url, start, timeout_seconds, transport)
+    except TimeoutError:
+        return CheckResult(
+            success=False,
+            status_code=None,
+            response_time_ms=_elapsed_ms(start),
+            error_type="timeout",
+            error_message=f"Check exceeded {timeout_seconds:g}s deadline",
+        )
+
+
+async def _check_url(
+    url: str,
+    start: float,
+    timeout_seconds: float,
+    transport: httpx.AsyncBaseTransport | None,
+) -> CheckResult:
     current_url = url
 
     try:
@@ -40,7 +64,9 @@ async def check_url(
             transport=transport if transport is not None else SafeAsyncHTTPTransport(),
         ) as client:
             for redirect_count in range(MAX_REDIRECTS + 1):
-                validate_public_url(current_url)
+                # Runs in a thread: it resolves DNS synchronously, which
+                # would block the event loop and escape the deadline.
+                await asyncio.to_thread(validate_public_url, current_url)
 
                 request = client.build_request("GET", current_url)
                 response = await client.send(request, stream=True)
